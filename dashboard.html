@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Lead Ranker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        header p {
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        select, button {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #229954;
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .stat-card h3 {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .filter-btn {
+            padding: 8px 12px;
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .filter-btn:hover {
+            background: #bdc3c7;
+        }
+        
+        .filter-btn.active:hover {
+            background: #2980b9;
+        }
+        
+        .loading {
+            display: none;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #34495e;
+            color: white;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+            font-size: 13px;
+        }
+        
+        tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .badge-hot {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .badge-warm {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-cold {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .badge-skip {
+            background: #7f8c8d;
+            color: white;
+        }
+        
+        .grade {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 3px;
+            text-align: center;
+            min-width: 50px;
+            display: inline-block;
+        }
+        
+        .grade-a { background: #27ae60; color: white; }
+        .grade-b { background: #3498db; color: white; }
+        .grade-c { background: #f39c12; color: white; }
+        .grade-d { background: #e74c3c; color: white; }
+        .grade-f { background: #c0392b; color: white; }
+        .grade-broken { background: #7f8c8d; color: white; }
+        .grade-no { background: #95a5a6; color: white; }
+        
+        .activity-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .activity-hot { background: #e74c3c; color: white; }      /* 75+ */
+        .activity-warm { background: #f39c12; color: white; }     /* 55-74 */
+        .activity-cool { background: #3498db; color: white; }     /* 35-54 */
+        .activity-cold { background: #95a5a6; color: white; }     /* <35 */
+        
+        .copy-btn {
+            padding: 4px 8px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .copy-btn:hover {
+            background: #2980b9;
+        }
+        
+        .copy-btn.copied {
+            background: #27ae60;
+        }
+        
+        .row-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .expand-row {
+            cursor: pointer;
+            color: #3498db;
+            text-decoration: underline;
+        }
+        
+        .expanded-content {
+            display: none;
+            background: #f9f9f9;
+            padding: 15px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .expanded-content.show {
+            display: block;
+        }
+        
+        .section {
+            margin-bottom: 15px;
+        }
+        
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-size: 13px;
+        }
+        
+        .export-btn {
+            background: #8e44ad;
+        }
+        
+        .export-btn:hover {
+            background: #7d3c98;
+        }
+        
+        .empty {
+            padding: 40px;
+            text-align: center;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌲 Tree Lead Ranker</h1>
+            <p>Find high-value tree service leads by city</p>
+        </header>
+        
+        <div class="controls">
+            <div class="control-group">
+                <div>
+                    <label>State</label>
+                    <select id="stateSelect">
+                        <option value="">Select a state...</option>
+                        <option value="SC">South Carolina</option>
+                        <option value="NC">North Carolina</option>
+                        <option value="GA">Georgia</option>
+                    </select>
+                </div>
+                <div>
+                    <label>City</label>
+                    <select id="citySelect" disabled>
+                        <option value="">Select a city...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="scanBtn" disabled>🔍 Scan City</button>
+                <button id="exportBtn" class="export-btn" disabled>📥 Export CSV</button>
+            </div>
+            
+            <div class="loading" id="loadingStatus">
+                <strong>Scanning...</strong> This may take a few minutes.
+            </div>
+            
+            <div class="stats" id="statsContainer"></div>
+            
+            <div class="filters">
+                <button class="filter-btn" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="call-now">Call Now</button>
+                <button class="filter-btn" data-filter="no-website">No Website</button>
+                <button class="filter-btn" data-filter="broken">Broken Website</button>
+                <button class="filter-btn" data-filter="grade-f">Grade F</button>
+                <button class="filter-btn" data-filter="50-reviews">50+ Reviews</button>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table id="leadsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">•</th>
+                        <th>Business Name</th>
+                        <th>Phone</th>
+                        <th>City</th>
+                        <th>Rating</th>
+                        <th>Grade</th>
+                        <th>Priority</th>
+                        <th>Activity</th>
+                        <th>Score</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsBody">
+                    <tr>
+                        <td colspan="9" class="empty">No leads yet. Scan a city to get started.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = "http://localhost:8000";
+        let allLeads = [];
+        let currentFilter = "all";
+        let currentState = null;
+        let currentCity = null;
+        
+        // State selector
+        document.getElementById("stateSelect").addEventListener("change", async (e) => {
+            currentState = e.target.value;
+            const citySelect = document.getElementById("citySelect");
+            citySelect.innerHTML = '<option value="">Select a city...</option>';
+            citySelect.disabled = true;
+            document.getElementById("scanBtn").disabled = true;
+            
+            if (!currentState) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/states/${currentState}/cities`);
+                const data = await response.json();
+                
+                data.cities.forEach(city => {
+                    const option = document.createElement("option");
+                    option.value = city;
+                    option.textContent = city;
+                    citySelect.appendChild(option);
+                });
+                
+                citySelect.disabled = false;
+            } catch (error) {
+                console.error("Error loading cities:", error);
+            }
+        });
+        
+        // City selector
+        document.getElementById("citySelect").addEventListener("change", (e) => {
+            currentCity = e.target.value;
+            document.getElementById("scanBtn").disabled = !currentCity;
+        });
+        
+        // Scan button
+        document.getElementById("scanBtn").addEventListener("click", async () => {
+            if (!currentState || !currentCity) return;
+            
+            document.getElementById("scanBtn").disabled = true;
+            document.getElementById("loadingStatus").classList.add("show");
+            
+            try {
+                const response = await fetch(`${API_URL}/scan`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ state: currentState, city: currentCity })
+                });
+                
+                // Poll for results every 5 seconds
+                let pollCount = 0;
+                const pollInterval = setInterval(async () => {
+                    pollCount++;
+                    try {
+                        const leadsResponse = await fetch(`${API_URL}/leads`);
+                        const leads = await leadsResponse.json();
+                        
+                        if (leads.length > 0) {
+                            allLeads = leads;
+                            renderLeads();
+                            updateStats();
+                            document.getElementById("loadingStatus").classList.remove("show");
+                            document.getElementById("scanBtn").disabled = false;
+                            document.getElementById("exportBtn").disabled = false;
+                            clearInterval(pollInterval);
+                        }
+                    } catch (error) {
+                        console.error("Error polling:", error);
+                    }
+                    
+                    // Stop polling after 30 minutes
+                    if (pollCount > 360) {
+                        clearInterval(pollInterval);
+                        alert("Scan timed out. Please try again.");
+                        document.getElementById("loadingStatus").classList.remove("show");
+                        document.getElementById("scanBtn").disabled = false;
+                    }
+                }, 5000);
+            } catch (error) {
+                console.error("Error starting scan:", error);
+                document.getElementById("loadingStatus").classList.remove("show");
+                document.getElementById("scanBtn").disabled = false;
+            }
+        });
+        
+        // Export button
+        document.getElementById("exportBtn").addEventListener("click", async () => {
+            try {
+                const response = await fetch(`${API_URL}/export/csv?state=${currentState}`);
+                const data = await response.json();
+                
+                // Download CSV
+                const blob = new Blob([data.csv], { type: "text/csv" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = data.filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error("Error exporting:", error);
+            }
+        });
+        
+        // Filter buttons
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+                currentFilter = e.target.dataset.filter;
+                renderLeads();
+            });
+        });
+        
+        // Set initial active filter
+        document.querySelector('[data-filter="all"]').classList.add("active");
+        
+        function filterLeads() {
+            if (currentFilter === "all") return allLeads;
+            
+            return allLeads.filter(lead => {
+                switch(currentFilter) {
+                    case "call-now":
+                        return lead.call_priority === "Call Now";
+                    case "no-website":
+                        return lead.website_status === "no_website";
+                    case "broken":
+                        return lead.website_status === "broken";
+                    case "grade-f":
+                        return lead.website_grade === "F";
+                    case "50-reviews":
+                        return lead.review_count >= 50;
+                    default:
+                        return true;
+                }
+            });
+        }
+        
+        function renderLeads() {
+            const filtered = filterLeads();
+            const tbody = document.getElementById("leadsBody");
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="empty">No leads match this filter.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map((lead, idx) => `
+                <tr>
+                    <td><span class="expand-row" onclick="toggleRow(${idx})">▼</span></td>
+                    <td><strong>${lead.business_name}</strong></td>
+                    <td><a href="tel:${lead.phone}">${lead.phone}</a></td>
+                    <td>${lead.city}</td>
+                    <td>${lead.rating ? lead.rating.toFixed(1) : "N/A"} ⭐ (${lead.review_count})</td>
+                    <td><span class="grade grade-${lead.website_grade.toLowerCase().replace(' ', '-')}">${lead.website_grade}</span></td>
+                    <td><span class="priority-badge badge-${lead.lead_type}">${lead.call_priority}</span></td>
+                    <td><span class="activity-badge activity-${getActivityLevel(lead.activity_score)}">${Math.round(lead.activity_score)}%</span></td>
+                    <td><strong>${Math.round(lead.sales_opportunity_score)}%</strong></td>
+                    <td>
+                        <button class="copy-btn" onclick="copyText('${lead.cold_call_opener}')">Opener</button>
+                    </td>
+                </tr>
+                <tr class="expanded-content" id="row-${idx}">
+                    <td colspan="10">
+                        <div class="section">
+                            <div class="section-title">🔥 Activity & Readiness</div>
+                            <div><strong>Activity Score:</strong> ${Math.round(lead.activity_score)}/100 - ${lead.readiness}</div>
+                            <div style="margin-top: 8px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 12px;">
+                                ${lead.readiness_recommendation}
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">🎯 Decision-Maker</div>
+                            <div><strong>${lead.primary_contact_name || 'Unknown'}</strong> - ${lead.primary_contact_role || 'Contact'}</div>
+                            ${lead.primary_contact_phone ? `<div>Phone: <strong>${lead.primary_contact_phone}</strong> <button class="copy-btn" onclick="copyText('${lead.primary_contact_phone}')">Copy</button></div>` : ''}
+                            ${lead.primary_contact_email ? `<div>Email: ${lead.primary_contact_email}</div>` : ''}
+                            <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">Confidence: ${Math.round(lead.contact_confidence || 0)}%</div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">💰 Financial ROI</div>
+                            <div><strong>Current Revenue:</strong> $${(lead.estimated_monthly_revenue || 0).toLocaleString()}/month</div>
+                            <div><strong>Lost to Poor Site:</strong> -$${(lead.estimated_lost_revenue_monthly || 0).toLocaleString()}/month</div>
+                            <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 4px;">
+                                <strong>Potential Upside:</strong> +$${(lead.potential_revenue_increase || 0).toLocaleString()}/year
+                            </div>
+                            <div style="font-size: 12px; margin-top: 4px;">
+                                Payback: ${(lead.roi_payback_months || 0).toFixed(1)} months | ROI: ${(lead.roi_percentage || 0).toFixed(0)}%
+                            </div>
+                            ${lead.roi_pitch ? `<div style="margin-top: 8px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-size: 12px; white-space: pre-wrap; font-family: monospace;">${lead.roi_pitch}</div>` : ''}
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Recommended Offer</div>
+                            <div>${lead.recommended_offer}</div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Main Problem</div>
+                            <div>${lead.main_problem}</div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Why This Lead Matters</div>
+                            <div>${lead.why_this_lead_matters}</div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Cold Call Opener</div>
+                            <div style="font-style: italic; margin-bottom: 8px;">"${lead.cold_call_opener}"</div>
+                            <button class="copy-btn" onclick="copyText('${lead.cold_call_opener}')">Copy Opener</button>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Short Pitch</div>
+                            <div style="margin-bottom: 8px;">${lead.short_pitch}</div>
+                            <button class="copy-btn" onclick="copyText('${lead.short_pitch}')">Copy Pitch</button>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Follow-up SMS</div>
+                            <div style="font-size: 12px; margin-bottom: 8px;">${lead.follow_up_sms}</div>
+                            <button class="copy-btn" onclick="copyText('${lead.follow_up_sms}')">Copy SMS</button>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Follow-up Email</div>
+                            <div style="font-size: 12px; margin-bottom: 8px;">${lead.follow_up_email}</div>
+                            <button class="copy-btn" onclick="copyText('${lead.follow_up_email}')">Copy Email</button>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">CRM Note</div>
+                            <div style="font-size: 12px; margin-bottom: 8px;">${lead.crm_note}</div>
+                            <button class="copy-btn" onclick="copyText('${lead.crm_note}')">Copy Note</button>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">Details</div>
+                            <div>Address: ${lead.address}</div>
+                            <div>Website: <a href="${lead.website_url}" target="_blank">${lead.website_url || "None"}</a></div>
+                            <div>Scanned: ${new Date(lead.date_scanned).toLocaleDateString()}</div>
+                        </div>
+                    </td>
+                </tr>
+            `).join("");
+        }
+        
+        function getActivityLevel(score) {
+            if (score >= 75) return "hot";
+            if (score >= 55) return "warm";
+            if (score >= 35) return "cool";
+            return "cold";
+        }
+        
+        function toggleRow(idx) {
+            const row = document.getElementById(`row-${idx}`);
+            row.classList.toggle("show");
+        }
+        
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            }).catch(err => {
+                console.error("Copy failed:", err);
+            });
+        }
+        
+        async function updateStats() {
+            try {
+                const response = await fetch(`${API_URL}/stats`);
+                const stats = await response.json();
+                
+                const statsHtml = `
+                    <div class="stat-card">
+                        <h3>Total Leads</h3>
+                        <div class="value">${stats.total_leads}</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #e74c3c;">
+                        <h3>Call Now</h3>
+                        <div class="value">${stats.call_now}</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #f39c12;">
+                        <h3>No Website</h3>
+                        <div class="value">${stats.no_website}</div>
+                    </div>
+                `;
+                document.getElementById("statsContainer").innerHTML = statsHtml;
+            } catch (error) {
+                console.error("Error updating stats:", error);
+            }
+        }
+    </script>
+</body>
+</html>
