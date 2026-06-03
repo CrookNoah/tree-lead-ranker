@@ -930,28 +930,85 @@
 
                 <!-- SETTINGS TAB -->
                 <div class="tab-content" id="settingsTab">
-                    <div style="background: var(--light-card); padding: 2rem; border-radius: 8px; max-width: 500px;">
-                        <h3 style="margin-bottom: 1.5rem;">Preferences</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem;">
+                        <!-- Preferences -->
+                        <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
+                            <h3 style="margin-bottom: 1.5rem;">Preferences</h3>
 
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="notificationsEnabled" checked>
-                                Enable notifications for new hot leads
-                            </label>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="notificationsEnabled" checked>
+                                    Enable notifications for new hot leads
+                                </label>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="autoCallLogging" checked>
+                                    Auto-save call logs
+                                </label>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Export Data</label>
+                                <button class="btn btn-secondary" id="exportBtn">
+                                    <i class="fas fa-download"></i> Export CSV
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="autoCallLogging" checked>
-                                Auto-save call logs
-                            </label>
+                        <!-- States & Cities Configuration -->
+                        <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
+                            <h3 style="margin-bottom: 1.5rem;">Manage States & Cities</h3>
+                            
+                            <div class="form-group">
+                                <label>Add New State</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="newStateCode" placeholder="State Code (e.g., TX)" style="flex: 1; max-width: 100px;">
+                                    <input type="text" id="newStateCity" placeholder="City" style="flex: 1;">
+                                    <button class="btn btn-secondary btn-small" onclick="addStateCity()" style="width: auto;">Add</button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>States Configured</label>
+                                <div id="statesList" style="background: #f9f9f9; padding: 1rem; border-radius: 4px; max-height: 300px; overflow-y: auto; font-size: 12px;">
+                                    Loading...
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <button class="btn btn-primary" onclick="saveStatesAndCities()" style="width: 100%;">
+                                    <i class="fas fa-save"></i> Save Configuration
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Export Data</label>
-                            <button class="btn btn-secondary" id="exportBtn">
-                                <i class="fas fa-download"></i> Export CSV
-                            </button>
+                        <!-- API Configuration -->
+                        <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
+                            <h3 style="margin-bottom: 1.5rem;">API Keys</h3>
+                            
+                            <div class="form-group">
+                                <label>Google Places API Key</label>
+                                <input type="password" id="googleApiKey" placeholder="Paste your Google Places API key">
+                                <small style="color: var(--text-muted);">Get one: https://developers.google.com/maps</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>OpenAI API Key (Optional)</label>
+                                <input type="password" id="openaiApiKey" placeholder="Paste your OpenAI API key">
+                                <small style="color: var(--text-muted);">For better AI analysis</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Anthropic API Key (Optional)</label>
+                                <input type="password" id="anthropicApiKey" placeholder="Paste your Anthropic API key">
+                                <small style="color: var(--text-muted);">For Claude-powered analysis</small>
+                            </div>
+
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 1rem;">
+                                💡 API keys are stored in .env file locally. Not transmitted to server.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1329,8 +1386,75 @@
             }
         });
 
+        // Load states and cities on startup
+        loadStatesAndCities();
+
         // Initial stats
         updateStats();
+
+        // Functions for settings
+        async function loadStatesAndCities() {
+            try {
+                const response = await fetch(`${API_URL}/settings`);
+                const data = await response.json();
+                window.currentStatesAndCities = data.states_and_cities;
+                renderStatesList();
+            } catch (error) {
+                console.error("Error loading settings:", error);
+            }
+        }
+
+        window.addStateCity = function() {
+            const stateCode = document.getElementById("newStateCode").value.toUpperCase();
+            const city = document.getElementById("newStateCity").value;
+
+            if (!stateCode || !city) {
+                alert("Please enter both state code and city");
+                return;
+            }
+
+            if (!window.currentStatesAndCities[stateCode]) {
+                window.currentStatesAndCities[stateCode] = [];
+            }
+
+            if (!window.currentStatesAndCities[stateCode].includes(city)) {
+                window.currentStatesAndCities[stateCode].push(city);
+            }
+
+            document.getElementById("newStateCode").value = "";
+            document.getElementById("newStateCity").value = "";
+            renderStatesList();
+        };
+
+        function renderStatesList() {
+            const list = document.getElementById("statesList");
+            let html = "";
+
+            for (const [state, cities] of Object.entries(window.currentStatesAndCities || {})) {
+                html += `<div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #ddd;">`;
+                html += `<strong>${state}</strong>: `;
+                html += cities.map(city => `<span style="display: inline-block; background: #e3f2fd; padding: 0.2rem 0.5rem; margin: 0.2rem; border-radius: 3px; font-size: 11px;">${city}</span>`).join("");
+                html += `</div>`;
+            }
+
+            list.innerHTML = html || "<em>No states configured</em>";
+        }
+
+        window.saveStatesAndCities = async function() {
+            try {
+                const response = await fetch(`${API_URL}/settings/update`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ states_and_cities: window.currentStatesAndCities })
+                });
+                const data = await response.json();
+                alert("✅ Settings saved! Refresh the page to see changes.");
+                location.reload();
+            } catch (error) {
+                console.error("Error saving settings:", error);
+                alert("❌ Error saving settings");
+            }
+        };
     </script>
 </body>
 </html>

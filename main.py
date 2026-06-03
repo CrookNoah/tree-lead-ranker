@@ -428,6 +428,30 @@ def add_tag(lead_id: int, tag: str):
     finally:
         db.close()
 
+# Settings endpoints
+@app.get("/settings")
+def get_settings():
+    """Get current settings"""
+    return {"states_and_cities": STATES_AND_CITIES}
+
+class SettingsUpdate(BaseModel):
+    states_and_cities: dict
+
+@app.post("/settings/update")
+def update_settings(settings: SettingsUpdate):
+    """Update states and cities configuration"""
+    from config import save_settings
+    global STATES_AND_CITIES
+    
+    try:
+        STATES_AND_CITIES = settings.states_and_cities
+        save_settings()
+        logger.info("Settings updated")
+        return {"success": True, "message": "Settings updated", "states_and_cities": STATES_AND_CITIES}
+    except Exception as e:
+        logger.error(f"Settings update error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 def serialize_business(business: Business) -> dict:
     """Convert Business model to dict"""
     return {

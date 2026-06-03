@@ -1,100 +1,85 @@
-"""Configuration for Tree Lead Ranker"""
-import os
 from dotenv import load_dotenv
+import os
+import json
 
 load_dotenv()
 
-# API Keys
-GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tree_leads.db")
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
-# Database
-DATABASE_URL = "sqlite:///./tree_leads.db"
-
-# Search terms for tree services
-SEARCH_TERMS = [
-    "tree service",
-    "tree removal",
-    "tree trimming",
-    "arborist",
-    "stump grinding",
-    "land clearing",
-]
-
-# US States with their major cities (sample)
+# All US States with major cities
 STATES_AND_CITIES = {
-    "SC": {
-        "state_name": "South Carolina",
-        "cities": [
-            "Charleston",
-            "Columbia",
-            "Greenville",
-            "Spartanburg",
-            "Summerville",
-            "Hilton Head",
-            "Florence",
-            "Anderson",
-            "Beaufort",
-            "Myrtle Beach",
-            "Goose Creek",
-            "Aiken",
-            "Laurens",
-            "Easley",
-            "Clemson",
-            "Orangeburg",
-            "Walterboro",
-            "Georgetown",
-            "Barnwell",
-            "Sumter",
-        ]
-    },
-    "NC": {
-        "state_name": "North Carolina",
-        "cities": [
-            "Charlotte",
-            "Raleigh",
-            "Greensboro",
-            "Durham",
-            "Chapel Hill",
-            "Wilmington",
-            "High Point",
-            "Fayetteville",
-            "Cary",
-            "Winston-Salem",
-        ]
-    },
-    "GA": {
-        "state_name": "Georgia",
-        "cities": [
-            "Atlanta",
-            "Savannah",
-            "Augusta",
-            "Athens",
-            "Marietta",
-            "Alpharetta",
-            "Decatur",
-            "Roswell",
-        ]
-    },
+    "AL": ["Birmingham", "Montgomery", "Mobile"],
+    "AK": ["Anchorage", "Juneau", "Fairbanks"],
+    "AZ": ["Phoenix", "Tucson", "Mesa"],
+    "AR": ["Little Rock", "Fort Smith", "Fayetteville"],
+    "CA": ["Los Angeles", "San Francisco", "San Diego"],
+    "CO": ["Denver", "Colorado Springs", "Aurora"],
+    "CT": ["Bridgeport", "New Haven", "Hartford"],
+    "DE": ["Wilmington", "Dover", "Newark"],
+    "FL": ["Miami", "Tampa", "Orlando"],
+    "GA": ["Atlanta", "Savannah", "Augusta"],
+    "HI": ["Honolulu", "Pearl City", "Kailua"],
+    "ID": ["Boise", "Nampa", "Meridian"],
+    "IL": ["Chicago", "Springfield", "Peoria"],
+    "IN": ["Indianapolis", "Fort Wayne", "Evansville"],
+    "IA": ["Des Moines", "Cedar Rapids", "Davenport"],
+    "KS": ["Kansas City", "Wichita", "Topeka"],
+    "KY": ["Louisville", "Lexington", "Bowling Green"],
+    "LA": ["New Orleans", "Baton Rouge", "Shreveport"],
+    "ME": ["Portland", "Lewiston", "Auburn"],
+    "MD": ["Baltimore", "Annapolis", "Frederick"],
+    "MA": ["Boston", "Worcester", "Springfield"],
+    "MI": ["Detroit", "Grand Rapids", "Ann Arbor"],
+    "MN": ["Minneapolis", "St. Paul", "Rochester"],
+    "MS": ["Jackson", "Gulfport", "Biloxi"],
+    "MO": ["Kansas City", "St. Louis", "Springfield"],
+    "MT": ["Billings", "Missoula", "Great Falls"],
+    "NE": ["Omaha", "Lincoln", "Bellevue"],
+    "NV": ["Las Vegas", "Henderson", "Reno"],
+    "NH": ["Manchester", "Nashua", "Concord"],
+    "NJ": ["Newark", "Jersey City", "Paterson"],
+    "NM": ["Albuquerque", "Las Cruces", "Santa Fe"],
+    "NY": ["New York City", "Buffalo", "Rochester"],
+    "NC": ["Charlotte", "Raleigh", "Greensboro"],
+    "ND": ["Bismarck", "Grand Forks", "Fargo"],
+    "OH": ["Columbus", "Cleveland", "Cincinnati"],
+    "OK": ["Oklahoma City", "Tulsa", "Norman"],
+    "OR": ["Portland", "Salem", "Eugene"],
+    "PA": ["Philadelphia", "Pittsburgh", "Allentown"],
+    "RI": ["Providence", "Warwick", "Cranston"],
+    "SC": ["Charleston", "Columbia", "Greenville"],
+    "SD": ["Sioux Falls", "Rapid City", "Aberdeen"],
+    "TN": ["Nashville", "Memphis", "Knoxville"],
+    "TX": ["Houston", "Dallas", "Austin"],
+    "UT": ["Salt Lake City", "Provo", "West Valley City"],
+    "VT": ["Burlington", "Rutland", "Barre"],
+    "VA": ["Virginia Beach", "Richmond", "Arlington"],
+    "WA": ["Seattle", "Spokane", "Tacoma"],
+    "WV": ["Charleston", "Huntington", "Parkersburg"],
+    "WI": ["Milwaukee", "Madison", "Green Bay"],
+    "WY": ["Cheyenne", "Casper", "Laramie"],
 }
 
-# Website audit checklist
-WEBSITE_AUDIT_ITEMS = [
-    "https",
-    "mobile_viewport",
-    "phone_visible",
-    "click_to_call",
-    "contact_form",
-    "quote_cta",
-    "service_pages",
-    "location_pages",
-    "reviews_testimonials",
-    "before_after_gallery",
-    "title_tag",
-    "meta_description",
-    "outdated_design",
-]
+# Load custom settings from file if exists
+SETTINGS_FILE = "settings.json"
+def load_settings():
+    global STATES_AND_CITIES
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                data = json.load(f)
+                if 'states_and_cities' in data:
+                    STATES_AND_CITIES = data['states_and_cities']
+        except:
+            pass
 
-# AI Model preference
-AI_MODEL = "anthropic"  # or "openai"
+def save_settings():
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump({"states_and_cities": STATES_AND_CITIES}, f, indent=2)
+
+load_settings()
