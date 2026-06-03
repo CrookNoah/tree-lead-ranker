@@ -24,6 +24,7 @@ from decision_maker_finder import get_decision_maker_finder
 from roi_calculator import get_roi_calculator
 from deduplicator import deduplicate_businesses, extract_domain, normalize_name
 from config import STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL, DATABASE_URL, GOOGLE_PLACES_API_KEY
+from perform_scan_v2 import perform_scan_simple
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -167,9 +168,10 @@ async def scan_city(request: ScanRequest, background_tasks: BackgroundTasks):
     
     # Start scan in background
     background_tasks.add_task(
-        perform_scan,
+        perform_scan_simple,
         state,
-        request.city
+        request.city,
+        scan_progress
     )
     
     return {"status": "Scanning started", "state": state, "city": request.city}
