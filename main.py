@@ -118,12 +118,11 @@ async def scan_progress_stream():
     async def event_generator():
         while True:
             if not scan_progress["scanning"]:
-                yield f"data: {json.dumps({'status': 'idle', 'found': scan_progress['found'], 'processed': scan_progress['processed']})}
-
-" 
+                data = json.dumps({'status': 'idle', 'found': scan_progress['found'], 'processed': scan_progress['processed']})
+                yield f"data: {data}\n\n"
             else:
-                yield f"data: {json.dumps(scan_progress)}
-"
+                data = json.dumps(scan_progress)
+                yield f"data: {data}\n\n"
             await asyncio.sleep(0.5)  # Update every 500ms
     
     return StreamingResponse(

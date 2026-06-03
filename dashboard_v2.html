@@ -1183,7 +1183,14 @@
 
         // ===== SCAN =====
         document.getElementById("scanBtn").addEventListener("click", async () => {
-            if (!currentState || !currentCity) return;
+            console.log("🔍 Scan button clicked!");
+            console.log("currentState:", currentState, "currentCity:", currentCity);
+            
+            if (!currentState || !currentCity) {
+                console.error("Missing state or city!");
+                alert("Please select both state and city");
+                return;
+            }
 
             document.getElementById("scanBtn").disabled = true;
             document.getElementById("statusScanning").classList.add("show");
@@ -1196,14 +1203,27 @@
 
             try {
                 // Start the scan
+                console.log("Calling API_URL:", `${API_URL}/scan`);
                 const response = await fetch(`${API_URL}/scan`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ state: currentState, city: currentCity })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const scanResult = await response.json();
+                console.log("✅ Scan initiated:", scanResult);
 
                 // Listen to real-time progress updates
+                console.log("Connecting to progress stream:", `${API_URL}/scan/progress`);
                 const eventSource = new EventSource(`${API_URL}/scan/progress`);
+                
+                eventSource.onopen = () => {
+                    console.log("✅ Progress stream connected");
+                };
                 
                 eventSource.onmessage = (event) => {
                     const progress = JSON.parse(event.data);
@@ -1257,14 +1277,25 @@
                 };
                 
                 eventSource.onerror = (error) => {
-                    console.error("EventSource error:", error);
+                    console.error("❌ EventSource error:", error);
                     eventSource.close();
-                    document.getElementById("statusScanning").classList.remove("show");
+                    document.getElementById("statusScanning").innerHTML = `
+                        <div style="padding: 1rem; text-align: center; color: red;">
+                            <h3>❌ Connection Error</h3>
+                            <p>${error.message || "Failed to connect to progress stream"}</p>
+                        </div>
+                    `;
                     document.getElementById("scanBtn").disabled = false;
                 };
             } catch (error) {
-                console.error("Error starting scan:", error);
-                document.getElementById("statusScanning").classList.remove("show");
+                console.error("❌ Error starting scan:", error);
+                document.getElementById("statusScanning").innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: red;">
+                        <h3>❌ Scan Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                document.getElementById("statusScanning").classList.add("show");
                 document.getElementById("scanBtn").disabled = false;
             }
         });
