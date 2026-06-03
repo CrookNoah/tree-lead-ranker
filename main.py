@@ -18,7 +18,7 @@ from behavioral_scorer import get_behavioral_scorer
 from decision_maker_finder import get_decision_maker_finder
 from roi_calculator import get_roi_calculator
 from deduplicator import deduplicate_businesses, extract_domain, normalize_name
-from config import STATES_AND_CITIES
+from config import STATES_AND_CITIES, SEARCH_TERMS
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -432,22 +432,27 @@ def add_tag(lead_id: int, tag: str):
 @app.get("/settings")
 def get_settings():
     """Get current settings"""
-    return {"states_and_cities": STATES_AND_CITIES}
+    return {"states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS}
 
 class SettingsUpdate(BaseModel):
-    states_and_cities: dict
+    states_and_cities: Optional[dict] = None
+    search_terms: Optional[List[str]] = None
 
 @app.post("/settings/update")
 def update_settings(settings: SettingsUpdate):
-    """Update states and cities configuration"""
+    """Update states, cities, and search terms configuration"""
     from config import save_settings
-    global STATES_AND_CITIES
+    global STATES_AND_CITIES, SEARCH_TERMS
     
     try:
-        STATES_AND_CITIES = settings.states_and_cities
+        if settings.states_and_cities:
+            STATES_AND_CITIES = settings.states_and_cities
+        if settings.search_terms:
+            SEARCH_TERMS = settings.search_terms
+        
         save_settings()
         logger.info("Settings updated")
-        return {"success": True, "message": "Settings updated", "states_and_cities": STATES_AND_CITIES}
+        return {"success": True, "message": "Settings updated", "states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS}
     except Exception as e:
         logger.error(f"Settings update error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

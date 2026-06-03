@@ -984,6 +984,33 @@
                             </div>
                         </div>
 
+                        <!-- Search Terms Configuration -->
+                        <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
+                            <h3 style="margin-bottom: 1.5rem;">Search Terms</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 1rem;">Customize search queries for Google Places API</p>
+                            
+                            <div class="form-group">
+                                <label>Add Search Term</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="newSearchTerm" placeholder="e.g., tree removal, arborist" style="flex: 1;">
+                                    <button class="btn btn-secondary btn-small" onclick="addSearchTerm()" style="width: auto;">Add</button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Current Search Terms</label>
+                                <div id="searchTermsList" style="background: #f9f9f9; padding: 1rem; border-radius: 4px; max-height: 250px; overflow-y: auto; font-size: 12px;">
+                                    Loading...
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <button class="btn btn-primary" onclick="saveSearchTerms()" style="width: 100%;">
+                                    <i class="fas fa-save"></i> Save Search Terms
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- API Configuration -->
                         <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
                             <h3 style="margin-bottom: 1.5rem;">API Keys</h3>
@@ -1398,7 +1425,9 @@
                 const response = await fetch(`${API_URL}/settings`);
                 const data = await response.json();
                 window.currentStatesAndCities = data.states_and_cities;
+                window.currentSearchTerms = data.search_terms || [];
                 renderStatesList();
+                renderSearchTermsList();
             } catch (error) {
                 console.error("Error loading settings:", error);
             }
@@ -1453,6 +1482,55 @@
             } catch (error) {
                 console.error("Error saving settings:", error);
                 alert("❌ Error saving settings");
+            }
+        };
+
+        window.addSearchTerm = function() {
+            const term = document.getElementById("newSearchTerm").value.trim();
+            if (!term) {
+                alert("Please enter a search term");
+                return;
+            }
+            if (!window.currentSearchTerms.includes(term)) {
+                window.currentSearchTerms.push(term);
+            }
+            document.getElementById("newSearchTerm").value = "";
+            renderSearchTermsList();
+        };
+
+        function renderSearchTermsList() {
+            const list = document.getElementById("searchTermsList");
+            if (!window.currentSearchTerms || window.currentSearchTerms.length === 0) {
+                list.innerHTML = "<em>No search terms configured</em>";
+                return;
+            }
+            let html = "";
+            window.currentSearchTerms.forEach((term, idx) => {
+                html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: white; margin: 0.25rem 0; border-radius: 3px; border-left: 3px solid #2196F3;">`;
+                html += `<span>${term}</span>`;
+                html += `<button onclick="removeSearchTerm(${idx})" style="background: #ff6b6b; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 2px; cursor: pointer; font-size: 11px;">Remove</button>`;
+                html += `</div>`;
+            });
+            list.innerHTML = html;
+        };
+
+        window.removeSearchTerm = function(idx) {
+            window.currentSearchTerms.splice(idx, 1);
+            renderSearchTermsList();
+        };
+
+        window.saveSearchTerms = async function() {
+            try {
+                const response = await fetch(`${API_URL}/settings/update`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ search_terms: window.currentSearchTerms })
+                });
+                const data = await response.json();
+                alert("✅ Search terms saved! Next scan will use the new terms.");
+            } catch (error) {
+                console.error("Error saving search terms:", error);
+                alert("❌ Error saving search terms");
             }
         };
     </script>
