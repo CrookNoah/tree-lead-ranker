@@ -113,26 +113,17 @@ def get_cities(state_code: str):
     }
 
 @app.get("/scan/progress")
-async def scan_progress_stream():
-    """Stream real-time scan progress using Server-Sent Events"""
-    async def event_generator():
-        while True:
-            if not scan_progress["scanning"]:
-                data = json.dumps({'status': 'idle', 'found': scan_progress['found'], 'processed': scan_progress['processed']})
-                yield f"data: {data}\n\n"
-            else:
-                data = json.dumps(scan_progress)
-                yield f"data: {data}\n\n"
-            await asyncio.sleep(0.5)  # Update every 500ms
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        }
-    )
+async def get_scan_progress():
+    """Get current scan progress"""
+    return {
+        "scanning": scan_progress["scanning"],
+        "state": scan_progress["state"],
+        "city": scan_progress["city"],
+        "found": scan_progress["found"],
+        "processed": scan_progress["processed"],
+        "status_message": scan_progress["status_message"],
+        "leads": scan_progress["leads"]
+    }
 
 @app.post("/scan")
 async def scan_city(request: ScanRequest, background_tasks: BackgroundTasks):
