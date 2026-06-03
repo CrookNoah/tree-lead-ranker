@@ -1253,9 +1253,12 @@
                         } else {
                             // Scan complete
                             clearInterval(pollInterval);
+                            const finalMessage = progress.status_message || "✅ Scan complete!";
+                            console.log("✅ Scan finished:", finalMessage);
+                            
                             document.getElementById("statusScanning").innerHTML = `
                                 <div style="padding: 1rem; text-align: center;">
-                                    <h2>✅ ${progress.status_message}</h2>
+                                    <h2>✅ ${finalMessage}</h2>
                                     <p style="font-size: 14px; margin-top: 0.5rem;">Refreshing results...</p>
                                 </div>
                             `;
@@ -1264,14 +1267,25 @@
                             setTimeout(async () => {
                                 try {
                                     const leadsResponse = await fetch(`${API_URL}/leads`);
+                                    if (!leadsResponse.ok) {
+                                        throw new Error(`HTTP ${leadsResponse.status}`);
+                                    }
                                     allLeads = await leadsResponse.json();
+                                    console.log("📊 Final leads count:", allLeads.length);
                                     renderLeads();
                                     updateStats();
                                     document.getElementById("statusScanning").classList.remove("show");
                                     document.getElementById("scanBtn").disabled = false;
+                                    console.log("✅ Scan UI complete");
                                 } catch (error) {
-                                    console.error("Error fetching final results:", error);
-                                    document.getElementById("statusScanning").classList.remove("show");
+                                    console.error("❌ Error fetching final results:", error);
+                                    document.getElementById("statusScanning").innerHTML = `
+                                        <div style="padding: 1rem; text-align: center; color: red;">
+                                            <h3>❌ Error Loading Results</h3>
+                                            <p>${error.message}</p>
+                                        </div>
+                                    `;
+                                    document.getElementById("statusScanning").classList.add("show");
                                     document.getElementById("scanBtn").disabled = false;
                                 }
                             }, 1000);
@@ -1524,6 +1538,25 @@
         // Load states and cities on startup
         loadStatesAndCities();
         loadStatesDropdown();
+        
+        // Check configuration on startup
+        async function checkConfig() {
+            try {
+                const response = await fetch(`${API_URL}/debug`);
+                const config = await response.json();
+                console.log("🗐️ Configuration:", config);
+                
+                if (!config.api_key_set) {
+                    console.warn("⚠️  GOOGLE_PLACES_API_KEY NOT SET! Add to .env file.");
+                    alert("⚠️  API Key not configured!\n\nAdd GOOGLE_PLACES_API_KEY to .env file and restart server.");
+                } else {
+                    console.log("✅ API Key configured:", config.api_key_preview);
+                }
+            } catch (error) {
+                console.error("Config check error:", error);
+            }
+        }
+        checkConfig();
 
         // Initial stats
         updateStats();

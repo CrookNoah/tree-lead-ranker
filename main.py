@@ -26,8 +26,16 @@ from deduplicator import deduplicate_businesses, extract_domain, normalize_name
 from config import STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Verify configuration on startup
+logger.info(f"🚀 Tree Lead Ranker starting...")
+logger.info(f"📍 Database: {DATABASE_URL}")
+logger.info(f"🔑 Google API Key set: {bool(GOOGLE_PLACES_API_KEY)}")
+logger.info(f"🧠 AI Model: {AI_MODEL}")
+logger.info(f"🔍 Search terms: {len(SEARCH_TERMS)} configured")
+logger.info(f"🗺️  States: {len(STATES_AND_CITIES)} loaded")
 
 app = FastAPI(title="Tree Lead Ranker")
 
@@ -90,7 +98,20 @@ def get_dashboard():
 
 @app.get("/")
 def read_root():
-    return {"message": "Tree Lead Ranker API"}
+    return {"message": "Tree Lead Ranker API", "version": "1.0"}
+
+@app.get("/debug")
+def debug_info():
+    """Debug endpoint to check configuration"""
+    return {
+        "api_key_set": bool(GOOGLE_PLACES_API_KEY),
+        "api_key_preview": GOOGLE_PLACES_API_KEY[:20] + "..." if GOOGLE_PLACES_API_KEY else "NOT SET",
+        "states_count": len(STATES_AND_CITIES),
+        "search_terms_count": len(SEARCH_TERMS),
+        "ai_model": AI_MODEL,
+        "database": DATABASE_URL,
+        "current_scan": scan_progress
+    }
 
 @app.get("/states")
 def get_states():
@@ -115,13 +136,18 @@ def get_cities(state_code: str):
 @app.get("/scan/progress")
 async def get_scan_progress():
     """Get current scan progress"""
+    # Ensure status_message is always set
+    status = scan_progress["status_message"] or "Initializing..."
+    
+    logger.debug(f"Progress request: scanning={scan_progress['scanning']}, found={scan_progress['found']}, leads={len(scan_progress['leads'])}")
+    
     return {
         "scanning": scan_progress["scanning"],
         "state": scan_progress["state"],
         "city": scan_progress["city"],
         "found": scan_progress["found"],
         "processed": scan_progress["processed"],
-        "status_message": scan_progress["status_message"],
+        "status_message": status,
         "leads": scan_progress["leads"]
     }
 
@@ -150,7 +176,9 @@ def perform_scan(state_code: str, city: str):
     global scan_progress
     
     state_name = get_state_name(state_code)
-    logger.info(f"Starting scan for {city}, {state_name}")
+    logger.info(f"\n\n{'='*60}")
+    logger.info(f"🚀 SCAN STARTED: {city}, {state_name} ({state_code})")
+    logger.info(f"{'='*60}")
     
     # Set scanning state
     scan_progress["scanning"] = True
@@ -161,15 +189,30 @@ def perform_scan(state_code: str, city: str):
     scan_progress["leads"] = []
     scan_progress["status_message"] = "Searching Google Places..."
     
+    # Verify API key is available
+    if not GOOGLE_PLACES_API_KEY:
+        error_msg = "❌ GOOGLE_PLACES_API_KEY not set in .env file!"
+        logger.error(error_msg)
+        scan_progress["status_message"] = error_msg
+        scan_progress["scanning"] = False
+        return
+    
     db = SessionLocal()
     try:
         # Step 1: Search for businesses
         places_api = get_places_api()
         businesses = places_api.search_city(city, state_name, state_code)
-        logger.info(f"Found {len(businesses)} businesses")
+        logger.info(f"✅ Found {len(businesses)} businesses")
+        
+        if len(businesses) == 0:
+            logger.warning("⚠️  No businesses found! Check API key or search terms.")
+            scan_progress["status_message"] = "No businesses found. Check API key and search terms."
+            scan_progress["scanning"] = False
+            return
         
         scan_progress["found"] = len(businesses)
         scan_progress["status_message"] = f"Found {len(businesses)} businesses. Analyzing..."
+        logger.info(f"📊 Status: {scan_progress['status_message']}")
         
         # Step 2: Save to database
         auditor = get_auditor()
@@ -319,12 +362,17 @@ def perform_scan(state_code: str, city: str):
         # Step 2b: Deduplicate
         deduplicate_businesses(db, state_code, city)
         
-        scan_progress["status_message"] = f"✅ Scan complete! Found {len(scan_progress['leads'])} leads."
-        logger.info(f"Scan complete for {city}, {state_name}. Added {len(scan_progress['leads'])} leads.")
+        final_count = len(scan_progress['leads'])
+        scan_progress["status_message"] = f"Scan complete! Found {final_count} leads."
+        logger.info(f"\n{'='*60}")
+        logger.info(f"✅ SCAN COMPLETE: {city}, {state_name}")
+        logger.info(f"📊 Results: {final_count} leads added to database")
+        logger.info(f"{'='*60}\n")
     
     except Exception as e:
-        scan_progress["status_message"] = f"❌ Error: {str(e)}"
-        logger.error(f"Scan error: {e}", exc_info=True)
+        error_msg = f"Scan error: {str(e)}"
+        scan_progress["status_message"] = error_msg
+        logger.error(f"❌ {error_msg}", exc_info=True)
         db.rollback()
     finally:
         scan_progress["scanning"] = False
