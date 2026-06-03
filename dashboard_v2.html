@@ -1187,41 +1187,81 @@
 
             document.getElementById("scanBtn").disabled = true;
             document.getElementById("statusScanning").classList.add("show");
+            document.getElementById("statusScanning").innerHTML = `
+                <div style="padding: 1rem; text-align: center;">
+                    <h3>🔍 Initializing scan...</h3>
+                    <p>Starting search for tree service businesses...</p>
+                </div>
+            `;
 
             try {
+                // Start the scan
                 const response = await fetch(`${API_URL}/scan`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ state: currentState, city: currentCity })
                 });
 
-                // Poll for results
-                let pollCount = 0;
-                const pollInterval = setInterval(async () => {
-                    pollCount++;
-                    try {
-                        const leadsResponse = await fetch(`${API_URL}/leads`);
-                        const leads = await leadsResponse.json();
-
-                        if (leads.length > 0) {
-                            allLeads = leads;
+                // Listen to real-time progress updates
+                const eventSource = new EventSource(`${API_URL}/scan/progress`);
+                
+                eventSource.onmessage = (event) => {
+                    const progress = JSON.parse(event.data);
+                    
+                    if (progress.scanning) {
+                        // Update status message
+                        document.getElementById("statusScanning").innerHTML = `
+                            <div style="padding: 1rem; text-align: center;">
+                                <h3>🔍 Scanning...</h3>
+                                <p>${progress.status_message}</p>
+                                <p><strong>${progress.processed}/${progress.found}</strong> analyzed</p>
+                                <div style="background: #f0f0f0; height: 8px; border-radius: 4px; margin: 1rem 0; overflow: hidden;">
+                                    <div style="background: #2196F3; height: 100%; width: ${progress.found > 0 ? (progress.processed / progress.found) * 100 : 0}%; transition: width 0.3s;"></div>
+                                </div>
+                                <p style="font-size: 12px; color: #999;">Found <strong>${progress.leads.length}</strong> leads so far...</p>
+                            </div>
+                        `;
+                        
+                        // Show leads as they come in
+                        if (progress.leads && progress.leads.length > 0) {
+                            allLeads = progress.leads;
                             renderLeads();
                             updateStats();
-                            document.getElementById("statusScanning").classList.remove("show");
-                            document.getElementById("scanBtn").disabled = false;
-                            clearInterval(pollInterval);
                         }
-                    } catch (error) {
-                        console.error("Error polling:", error);
+                    } else {
+                        // Scan complete
+                        eventSource.close();
+                        document.getElementById("statusScanning").innerHTML = `
+                            <div style="padding: 1rem; text-align: center;">
+                                <h2>✅ ${progress.status_message}</h2>
+                                <p style="font-size: 14px; margin-top: 0.5rem;">Refreshing results...</p>
+                            </div>
+                        `;
+                        
+                        // Fetch final results
+                        setTimeout(async () => {
+                            try {
+                                const leadsResponse = await fetch(`${API_URL}/leads`);
+                                allLeads = await leadsResponse.json();
+                                renderLeads();
+                                updateStats();
+                                document.getElementById("statusScanning").classList.remove("show");
+                                document.getElementById("scanBtn").disabled = false;
+                            } catch (error) {
+                                console.error("Error fetching final results:", error);
+                                document.getElementById("statusScanning").classList.remove("show");
+                                document.getElementById("scanBtn").disabled = false;
+                            }
+                        }, 1000);
                     }
-
-                    if (pollCount > 360) {
-                        clearInterval(pollInterval);
-                        document.getElementById("statusScanning").classList.remove("show");
-                        document.getElementById("scanBtn").disabled = false;
-                        alert("Scan timed out.");
-                    }
-                }, 5000);
+                };
+                
+                eventSource.onerror = (error) => {
+                    console.error("EventSource error:", error);
+                    eventSource.close();
+                    document.getElementById("statusScanning").classList.remove("show");
+                    document.getElementById("scanBtn").disabled = false;
+                };
             } catch (error) {
                 console.error("Error starting scan:", error);
                 document.getElementById("statusScanning").classList.remove("show");

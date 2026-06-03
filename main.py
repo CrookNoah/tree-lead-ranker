@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 from pathlib import Path
 from pydantic import BaseModel
 from typing import List, Optional
@@ -9,6 +10,9 @@ import logging
 from datetime import datetime
 import csv
 from io import StringIO
+import json
+import asyncio
+from queue import Queue
 
 from models import Business, SessionLocal
 from places_api import get_places_api
@@ -35,6 +39,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Real-time scan progress tracking
+scan_progress = {
+    "scanning": False,
+    "state": "",
+    "city": "",
+    "found": 0,
+    "processed": 0,
+    "total_searched": 0,
+    "status_message": "Ready",
+    "leads": []
+}
+
+scan_updates = Queue()
 
 # Schemas
 class ScanRequest(BaseModel):
@@ -94,6 +112,29 @@ def get_cities(state_code: str):
         "cities": STATES_AND_CITIES[state_code]
     }
 
+@app.get("/scan/progress")
+async def scan_progress_stream():
+    """Stream real-time scan progress using Server-Sent Events"""
+    async def event_generator():
+        while True:
+            if not scan_progress["scanning"]:
+                yield f"data: {json.dumps({'status': 'idle', 'found': scan_progress['found'], 'processed': scan_progress['processed']})}
+
+" 
+            else:
+                yield f"data: {json.dumps(scan_progress)}
+"
+            await asyncio.sleep(0.5)  # Update every 500ms
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
 @app.post("/scan")
 async def scan_city(request: ScanRequest, background_tasks: BackgroundTasks):
     """Scan a city for tree service businesses"""
@@ -116,8 +157,19 @@ async def scan_city(request: ScanRequest, background_tasks: BackgroundTasks):
 
 def perform_scan(state_code: str, city: str):
     """Perform the actual scan and database update"""
+    global scan_progress
+    
     state_name = get_state_name(state_code)
     logger.info(f"Starting scan for {city}, {state_name}")
+    
+    # Set scanning state
+    scan_progress["scanning"] = True
+    scan_progress["state"] = state_code
+    scan_progress["city"] = city
+    scan_progress["found"] = 0
+    scan_progress["processed"] = 0
+    scan_progress["leads"] = []
+    scan_progress["status_message"] = "Searching Google Places..."
     
     db = SessionLocal()
     try:
@@ -126,6 +178,9 @@ def perform_scan(state_code: str, city: str):
         businesses = places_api.search_city(city, state_name, state_code)
         logger.info(f"Found {len(businesses)} businesses")
         
+        scan_progress["found"] = len(businesses)
+        scan_progress["status_message"] = f"Found {len(businesses)} businesses. Analyzing..."
+        
         # Step 2: Save to database
         auditor = get_auditor()
         analyzer = get_analyzer()
@@ -133,7 +188,11 @@ def perform_scan(state_code: str, city: str):
         decision_maker_finder = get_decision_maker_finder()
         roi_calc = get_roi_calculator()
         
-        for business_data in businesses:
+        for idx, business_data in enumerate(businesses):
+            # Update progress
+            scan_progress["processed"] = idx + 1
+            scan_progress["status_message"] = f"Processing {idx + 1}/{len(businesses)}: {business_data.get('business_name', 'Unknown')}"
+            
             # Check for duplicates
             existing = db.query(Business).filter(
                 Business.place_id == business_data["place_id"]
@@ -252,17 +311,33 @@ def perform_scan(state_code: str, city: str):
             db.add(business)
             db.commit()
             
+            # Add to real-time updates
+            lead_summary = {
+                "id": business.id,
+                "business_name": business.business_name,
+                "city": business.city,
+                "phone": business.phone,
+                "website_grade": business.website_grade,
+                "activity_score": business.activity_score,
+                "call_priority": business.call_priority,
+                "cold_call_opener": business.cold_call_opener[:100] if business.cold_call_opener else "..."
+            }
+            scan_progress["leads"].append(lead_summary)
+            
             logger.info(f"Added: {business.business_name} - {business.call_priority}")
         
         # Step 2b: Deduplicate
         deduplicate_businesses(db, state_code, city)
         
-        logger.info(f"Scan complete for {city}, {state_name}")
+        scan_progress["status_message"] = f"✅ Scan complete! Found {len(scan_progress['leads'])} leads."
+        logger.info(f"Scan complete for {city}, {state_name}. Added {len(scan_progress['leads'])} leads.")
     
     except Exception as e:
+        scan_progress["status_message"] = f"❌ Error: {str(e)}"
         logger.error(f"Scan error: {e}", exc_info=True)
         db.rollback()
     finally:
+        scan_progress["scanning"] = False
         db.close()
 
 @app.get("/leads")
