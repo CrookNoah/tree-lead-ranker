@@ -23,19 +23,22 @@ from behavioral_scorer import get_behavioral_scorer
 from decision_maker_finder import get_decision_maker_finder
 from roi_calculator import get_roi_calculator
 from deduplicator import deduplicate_businesses, extract_domain, normalize_name
-from config import STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL
+from config import STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL, DATABASE_URL, GOOGLE_PLACES_API_KEY
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Verify configuration on startup
-logger.info(f"🚀 Tree Lead Ranker starting...")
-logger.info(f"📍 Database: {DATABASE_URL}")
-logger.info(f"🔑 Google API Key set: {bool(GOOGLE_PLACES_API_KEY)}")
-logger.info(f"🧠 AI Model: {AI_MODEL}")
-logger.info(f"🔍 Search terms: {len(SEARCH_TERMS)} configured")
-logger.info(f"🗺️  States: {len(STATES_AND_CITIES)} loaded")
+try:
+    logger.info(f"🚀 Tree Lead Ranker starting...")
+    logger.info(f"📍 Database: {DATABASE_URL}")
+    logger.info(f"🔑 Google API Key set: {bool(GOOGLE_PLACES_API_KEY)}")
+    logger.info(f"🧠 AI Model: {AI_MODEL}")
+    logger.info(f"🔍 Search terms: {len(SEARCH_TERMS)} configured")
+    logger.info(f"🗺️  States: {len(STATES_AND_CITIES)} loaded")
+except Exception as e:
+    logger.error(f"❌ Configuration error: {e}")
 
 app = FastAPI(title="Tree Lead Ranker")
 
