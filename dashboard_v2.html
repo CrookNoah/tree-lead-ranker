@@ -1125,6 +1125,30 @@
             document.body.classList.add("dark-mode");
         }
 
+        // ===== LOAD STATES ON PAGE STARTUP =====
+        async function loadStatesDropdown() {
+            try {
+                const response = await fetch(`${API_URL}/states`);
+                const states = await response.json();
+                const stateSelect = document.getElementById("stateSelect");
+                
+                // Sort states alphabetically
+                const sortedStates = Object.keys(states).sort();
+                
+                sortedStates.forEach(stateCode => {
+                    const option = document.createElement("option");
+                    option.value = stateCode;
+                    option.textContent = `${stateCode}`;
+                    stateSelect.appendChild(option);
+                });
+                
+                console.log(`Loaded ${sortedStates.length} states`);
+            } catch (error) {
+                console.error("Error loading states:", error);
+                alert("Failed to load states. Check your connection.");
+            }
+        }
+
         // ===== STATE/CITY =====
         document.getElementById("stateSelect").addEventListener("change", async (e) => {
             currentState = e.target.value;
@@ -1424,6 +1448,7 @@
 
         // Load states and cities on startup
         loadStatesAndCities();
+        loadStatesDropdown();
 
         // Initial stats
         updateStats();

@@ -12,6 +12,7 @@ from io import StringIO
 
 from models import Business, SessionLocal
 from places_api import get_places_api
+from state_names import get_state_name
 from website_auditor import get_auditor
 from lead_analyzer import get_analyzer
 from behavioral_scorer import get_behavioral_scorer
@@ -76,44 +77,46 @@ def read_root():
 @app.get("/states")
 def get_states():
     """Get list of states and their cities"""
-    return STATES_AND_CITIES
+    result = {}
+    for state_code, cities in STATES_AND_CITIES.items():
+        result[state_code] = cities
+    return result
 
 @app.get("/states/{state_code}/cities")
 def get_cities(state_code: str):
     """Get cities for a state"""
+    state_code = state_code.upper()
     if state_code not in STATES_AND_CITIES:
         raise HTTPException(status_code=404, detail="State not found")
     
-    state_data = STATES_AND_CITIES[state_code]
     return {
         "state_code": state_code,
-        "state_name": state_data["state_name"],
-        "cities": state_data["cities"]
+        "cities": STATES_AND_CITIES[state_code]
     }
 
 @app.post("/scan")
 async def scan_city(request: ScanRequest, background_tasks: BackgroundTasks):
     """Scan a city for tree service businesses"""
     
-    if request.state not in STATES_AND_CITIES:
-        raise HTTPException(status_code=400, detail="Invalid state")
+    state = request.state.upper()
+    if state not in STATES_AND_CITIES:
+        raise HTTPException(status_code=400, detail=f"Invalid state: {state}")
     
-    state_data = STATES_AND_CITIES[request.state]
-    if request.city not in state_data["cities"]:
-        raise HTTPException(status_code=400, detail="Invalid city for state")
+    if request.city not in STATES_AND_CITIES[state]:
+        raise HTTPException(status_code=400, detail=f"Invalid city: {request.city}")
     
     # Start scan in background
     background_tasks.add_task(
         perform_scan,
-        request.state,
-        request.city,
-        state_data["state_name"]
+        state,
+        request.city
     )
     
-    return {"status": "Scanning started", "state": request.state, "city": request.city}
+    return {"status": "Scanning started", "state": state, "city": request.city}
 
-def perform_scan(state_code: str, city: str, state_name: str):
+def perform_scan(state_code: str, city: str):
     """Perform the actual scan and database update"""
+    state_name = get_state_name(state_code)
     logger.info(f"Starting scan for {city}, {state_name}")
     
     db = SessionLocal()
