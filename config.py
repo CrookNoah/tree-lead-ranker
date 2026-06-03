@@ -11,8 +11,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
+# AI Model configuration
+AI_MODEL = os.getenv("AI_MODEL", "anthropic")  # "anthropic" or "openai"
+
 # Default search terms for tree service businesses
-SEARCH_TERMS = [
+DEFAULT_SEARCH_TERMS = [
     "tree service",
     "tree removal",
     "tree trimming",
@@ -89,10 +92,13 @@ STATES_AND_CITIES = {
     "WY": ["Cheyenne", "Casper", "Laramie"],
 }
 
+# Initialize SEARCH_TERMS from default
+SEARCH_TERMS = DEFAULT_SEARCH_TERMS.copy()
+
 # Load custom settings from file if exists
 SETTINGS_FILE = "settings.json"
 def load_settings():
-    global STATES_AND_CITIES, SEARCH_TERMS
+    global STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r') as f:
@@ -101,6 +107,8 @@ def load_settings():
                     STATES_AND_CITIES = data['states_and_cities']
                 if 'search_terms' in data:
                     SEARCH_TERMS = data['search_terms']
+                if 'ai_model' in data:
+                    AI_MODEL = data['ai_model']
         except:
             pass
 
@@ -108,7 +116,8 @@ def save_settings():
     with open(SETTINGS_FILE, 'w') as f:
         json.dump({
             "states_and_cities": STATES_AND_CITIES,
-            "search_terms": SEARCH_TERMS
+            "search_terms": SEARCH_TERMS,
+            "ai_model": AI_MODEL
         }, f, indent=2)
 
 load_settings()

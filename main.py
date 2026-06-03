@@ -18,7 +18,7 @@ from behavioral_scorer import get_behavioral_scorer
 from decision_maker_finder import get_decision_maker_finder
 from roi_calculator import get_roi_calculator
 from deduplicator import deduplicate_businesses, extract_domain, normalize_name
-from config import STATES_AND_CITIES, SEARCH_TERMS
+from config import STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -432,27 +432,30 @@ def add_tag(lead_id: int, tag: str):
 @app.get("/settings")
 def get_settings():
     """Get current settings"""
-    return {"states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS}
+    return {"states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS, "ai_model": AI_MODEL}
 
 class SettingsUpdate(BaseModel):
     states_and_cities: Optional[dict] = None
     search_terms: Optional[List[str]] = None
+    ai_model: Optional[str] = None
 
 @app.post("/settings/update")
 def update_settings(settings: SettingsUpdate):
-    """Update states, cities, and search terms configuration"""
+    """Update states, cities, search terms, and AI model configuration"""
     from config import save_settings
-    global STATES_AND_CITIES, SEARCH_TERMS
+    global STATES_AND_CITIES, SEARCH_TERMS, AI_MODEL
     
     try:
         if settings.states_and_cities:
             STATES_AND_CITIES = settings.states_and_cities
         if settings.search_terms:
             SEARCH_TERMS = settings.search_terms
+        if settings.ai_model and settings.ai_model in ["anthropic", "openai"]:
+            AI_MODEL = settings.ai_model
         
         save_settings()
         logger.info("Settings updated")
-        return {"success": True, "message": "Settings updated", "states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS}
+        return {"success": True, "message": "Settings updated", "states_and_cities": STATES_AND_CITIES, "search_terms": SEARCH_TERMS, "ai_model": AI_MODEL}
     except Exception as e:
         logger.error(f"Settings update error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

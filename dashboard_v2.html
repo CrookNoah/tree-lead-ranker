@@ -1013,8 +1013,17 @@
 
                         <!-- API Configuration -->
                         <div style="background: var(--light-card); padding: 2rem; border-radius: 8px;">
-                            <h3 style="margin-bottom: 1.5rem;">API Keys</h3>
+                            <h3 style="margin-bottom: 1.5rem;">API Configuration</h3>
                             
+                            <div class="form-group">
+                                <label>AI Model for Lead Analysis</label>
+                                <select id="aiModelSelect" onchange="changeAIModel()">
+                                    <option value="anthropic">🤖 Anthropic Claude (Recommended)</option>
+                                    <option value="openai">⚡ OpenAI GPT-4</option>
+                                </select>
+                                <small style="color: var(--text-muted);">Used for generating cold openers and analyzing leads</small>
+                            </div>
+
                             <div class="form-group">
                                 <label>Google Places API Key</label>
                                 <input type="password" id="googleApiKey" placeholder="Paste your Google Places API key">
@@ -1024,7 +1033,7 @@
                             <div class="form-group">
                                 <label>OpenAI API Key (Optional)</label>
                                 <input type="password" id="openaiApiKey" placeholder="Paste your OpenAI API key">
-                                <small style="color: var(--text-muted);">For better AI analysis</small>
+                                <small style="color: var(--text-muted);">For GPT-4 powered analysis</small>
                             </div>
 
                             <div class="form-group">
@@ -1034,7 +1043,7 @@
                             </div>
 
                             <p style="font-size: 11px; color: var(--text-muted); margin-top: 1rem;">
-                                💡 API keys are stored in .env file locally. Not transmitted to server.
+                                🧠 API keys are stored in .env file locally. Not transmitted to server.
                             </p>
                         </div>
                     </div>
@@ -1426,8 +1435,10 @@
                 const data = await response.json();
                 window.currentStatesAndCities = data.states_and_cities;
                 window.currentSearchTerms = data.search_terms || [];
+                window.currentAIModel = data.ai_model || "anthropic";
                 renderStatesList();
                 renderSearchTermsList();
+                document.getElementById("aiModelSelect").value = window.currentAIModel;
             } catch (error) {
                 console.error("Error loading settings:", error);
             }
@@ -1531,6 +1542,24 @@
             } catch (error) {
                 console.error("Error saving search terms:", error);
                 alert("❌ Error saving search terms");
+            }
+        };
+
+        window.changeAIModel = async function() {
+            const selectedModel = document.getElementById("aiModelSelect").value;
+            window.currentAIModel = selectedModel;
+            
+            try {
+                const response = await fetch(`${API_URL}/settings/update`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ai_model: selectedModel })
+                });
+                const data = await response.json();
+                alert(`✅ AI model switched to ${selectedModel}! Next analysis will use the new model.`);
+            } catch (error) {
+                console.error("Error changing AI model:", error);
+                alert("❌ Error saving AI model preference");
             }
         };
     </script>
